@@ -6,6 +6,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { auth, db } from '../firebaseConfig'; // Firebase imports
 import Ionicons from '@expo/vector-icons/Ionicons';
+import RNPickerSelect from 'react-native-picker-select';
 
 // Custom Tabs Component
 const Tab = ({ selectedTab, onPress, title }) => (
@@ -52,6 +53,12 @@ const SignupScreen = ({ navigation }) => {
           Alert.alert('Error', 'Please fill all business fields.');
           return;
         }
+        
+        await setDoc(doc(db, 'users', user.uid), {
+          email: user.email,
+          fullName: businessName,
+          role: 'businessOwner',
+        });
         // Save business details in Firestore
         await setDoc(doc(db, 'businesses', user.uid), {
           email: user.email,
@@ -151,11 +158,15 @@ const SignupScreen = ({ navigation }) => {
             </View>
             <View style={styles.inputGroup}>
               <Ionicons name="briefcase" size={24} color="black" style={styles.sideIcon} />
-              <TextInput
+              <RNPickerSelect
+                placeholder={{ label: 'Select Business Type', value: '' }}
+                items={[
+                  { label: 'Car Wash', value: 'Car Wash' },
+                  { label: 'Rentals', value: 'Rentals' }
+                ]}
+                style={pickerSelectStyles}
+                onValueChange={(value) => setBusinessType(value)}
                 value={businessType}
-                onChangeText={setBusinessType}
-                style={styles.input}
-                placeholder="Business Type (e.g., Car Wash, Rentals)"
               />
             </View>
             <View style={styles.inputGroup}>
@@ -236,8 +247,8 @@ const styles = StyleSheet.create({
     marginLeft: "4%"
   },
   registerBtn: {
-    width: "100%",
-    height: "30%",
+    width: "85%",
+    height: "25%",
     backgroundColor: "#1C3530",
     borderRadius: 5,
     display: "flex",
@@ -253,43 +264,66 @@ const styles = StyleSheet.create({
   },
   loginGroup: {
     position: 'absolute',
-    width: "90%",
-    marginBottom: 0,
-    top: "80%",
-    height: "20%",
+    width: "100%",
+    height: "35%",
+    bottom: 0,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "space-evenly"
   },
+  signTxt: {
+    color: "#000000",
+    fontSize: 16
+  },
   tabContainer: {
-    flexDirection: 'row',
-    width: '90%',
-    justifyContent: 'center',
-    marginVertical: 10
+    width: "90%",
+    flexDirection: "row",
+    justifyContent: "space-between"
   },
   tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#f0f0f0',
-    marginHorizontal: 5,
-    borderRadius: 5
+    width: "48%",
+    height: 50,
+    borderRadius: 5,
+    backgroundColor: "#F3F3F3",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
   },
   activeTab: {
-    backgroundColor: '#1C3530'
-  },
-  activeTabText: {
-    color: '#fff'
+    backgroundColor: "#1C3530",
   },
   tabText: {
-    fontSize: 16,
-    color: '#000'
+    color: "#000",
+    fontSize: 18
   },
-  signTxt: {
-    color: '#1C3530',
-    fontWeight: '600'
-  }
+  activeTabText: {
+    color: "#fff",
+  },
+});
+
+// Styles for RNPickerSelect
+const pickerSelectStyles = StyleSheet.create({
+  inputIOS: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'gray',
+    borderRadius: 4,
+    color: 'black',
+    paddingRight: 30, // to ensure the text is not cut off
+  },
+  inputAndroid: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'gray',
+    borderRadius: 8,
+    color: 'black',
+    paddingRight: 30, // to ensure the text is not cut off
+  },
 });
 
 export default SignupScreen;

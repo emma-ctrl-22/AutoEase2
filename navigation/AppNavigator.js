@@ -6,8 +6,9 @@ import DrawerNavigator from './DrawerNavigator';
 import ServiceDetail from '../screens/ServiceDetail';
 import VehicleDetail from '../screens/VehicleDetail';
 import Profile from '../screens/Profile';
-import { auth, db } from '../firebaseConfig'; // Import Firebase
-// import { AuthContext } from '../context/AuthContext';
+import { auth, db } from '../firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import DrawerNavigatorAdmin from '../Admin/DrawerNavigator';
 
 const Stack = createStackNavigator();
@@ -17,7 +18,7 @@ const AppNavigator = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const docRef = doc(db, 'users', user.uid);
         const docSnap = await getDoc(docRef);
@@ -40,20 +41,16 @@ const AppNavigator = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {userRole ? (
-          userRole === 'customer' ? (
-            <>
-              <Stack.Screen name="Main" component={DrawerNavigator} options={{ headerShown: false }} />
-              <Stack.Screen name="ServiceDetail" component={ServiceDetail} />
-              <Stack.Screen name="VehicleDetail" component={VehicleDetail} />
-              <Stack.Screen name="Profile" component={Profile} />
-            </>
-          ) : (
-            <>
-              <Stack.Screen name="Admin" component={DrawerNavigatorAdmin} options={{ headerShown: false }} />
-              <Stack.Screen name="ServiceDetail" component={ServiceDetail} />
-              <Stack.Screen name="VehicleDetail" component={VehicleDetail} />
-              <Stack.Screen name="Profile" component={Profile} />
-            </>)
+          <>
+            {userRole === 'customer' ? (
+              <Stack.Screen name="Main" component={DrawerNavigator} />
+            ) : (
+              <Stack.Screen name="Admin" component={DrawerNavigatorAdmin} />
+            )}
+            <Stack.Screen name="ServiceDetail" component={ServiceDetail} />
+            <Stack.Screen name="VehicleDetail" component={VehicleDetail} />
+            <Stack.Screen name="Profile" component={Profile} />
+          </>
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}

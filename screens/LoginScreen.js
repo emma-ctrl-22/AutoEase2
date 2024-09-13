@@ -26,12 +26,21 @@ const LoginScreen = ({ navigation }) => {
       if (docSnap.exists()) {
         const { role } = docSnap.data();
         if (role === 'customer') {
-          navigation.navigate('CustomerStack');
+          // Navigate to the customer stack
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
         } else if (role === 'businessOwner') {
-          navigation.navigate('BusinessOwnerStack');
+          // Navigate to the business owner stack
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Admin' }],
+          });
         }
       } else {
         console.log('No such document!');
+        Alert.alert('Error', 'User data not found. Please contact support.');
       }
     } catch (error) {
       console.error('Login error:', error);
