@@ -84,12 +84,14 @@ const styles = StyleSheet.create({
     marginRight: 20,
     display: "flex",
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
+    
   },
   logoutContainer: {
     marginBottom: 15,
     borderTopWidth: 1,
     borderTopColor: '#ccc',
+  
   },
 });
 

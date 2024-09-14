@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { doc, setDoc, collection } from 'firebase/firestore';
-import { db, auth, storage } from '../firebaseConfig'; // Import your Firebase configuration
+import { db, auth, storage } from '../firebaseConfig'; 
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 
