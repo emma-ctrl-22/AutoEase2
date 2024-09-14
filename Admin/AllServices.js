@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,32 +9,57 @@ import {
   Modal,
   TextInput,
   ScrollView,
-  SafeAreaView
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { auth, db } from '../firebaseConfig'; // Adjust this import based on your project structure
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { useNavigation } from '@react-navigation/native';
 
-export default function AllServices() {
-  // Fake data for services
-  const [services, setServices] = useState([
-    {
-      id: '1',
-      serviceName: 'Premium Wash',
-      price: '25',
-      businessType: 'carWash',
-    },
-    {
-      id: '2',
-      serviceName: 'SUV Rental',
-      price: '80',
-      carName: 'Toyota Highlander',
-      carDescription: 'Spacious SUV perfect for family trips.',
-      businessType: 'carRental',
-    },
-    // Add more services as needed
-  ]);
-
+const AllServices = () => {
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [businessId, setBusinessId] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      setBusinessId(user.uid);
+    } else {
+      Alert.alert('Error', 'No user is logged in.');
+      navigation.goBack();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!businessId) return;
+
+    const fetchServices = async () => {
+      const servicesRef = collection(db, 'services');
+      const q = query(servicesRef, where('businessId', '==', businessId));
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const servicesData = [];
+        snapshot.forEach((doc) => {
+          servicesData.push({ id: doc.id, ...doc.data() });
+        });
+        setServices(servicesData);
+        setLoading(false);
+      }, (error) => {
+        console.error('Error fetching services:', error);
+        setLoading(false);
+      });
+
+      // Cleanup listener on unmount
+      return () => unsubscribe();
+    };
+
+    fetchServices();
+  }, [businessId]);
 
   const handleDelete = (id) => {
     Alert.alert(
@@ -45,10 +70,14 @@ export default function AllServices() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setServices((prevServices) =>
-              prevServices.filter((service) => service.id !== id)
-            );
+          onPress: async () => {
+            try {
+              await deleteDoc(doc(db, 'services', id));
+              Alert.alert('Success', 'Service deleted successfully!');
+            } catch (error) {
+              console.error('Error deleting service:', error);
+              Alert.alert('Error', 'Failed to delete service. Please try again.');
+            }
           },
         },
       ]
@@ -60,15 +89,26 @@ export default function AllServices() {
     setModalVisible(true);
   };
 
-  const handleSave = () => {
-    // Update the service in the services list
-    setServices((prevServices) =>
-      prevServices.map((service) =>
-        service.id === selectedService.id ? selectedService : service
-      )
-    );
-    setModalVisible(false);
-    Alert.alert('Success', 'Service updated successfully!');
+  const handleSave = async () => {
+    if (!selectedService.serviceName || !selectedService.price) {
+      Alert.alert('Error', 'Please fill in all required fields.');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'services', selectedService.id), {
+        serviceName: selectedService.serviceName,
+        price: selectedService.price,
+        carName: selectedService.carName || '',
+        carDescription: selectedService.carDescription || '',
+        // Add other fields if necessary
+      });
+      setModalVisible(false);
+      Alert.alert('Success', 'Service updated successfully!');
+    } catch (error) {
+      console.error('Error updating service:', error);
+      Alert.alert('Error', 'Failed to update service. Please try again.');
+    }
   };
 
   const handleChange = (field, value) => {
@@ -77,6 +117,7 @@ export default function AllServices() {
 
   const renderServiceItem = ({ item }) => (
     <View style={styles.serviceItem}>
+      <Image source={{ uri: item.imageUrl }} style={styles.serviceImage} />
       <View style={styles.serviceInfo}>
         <Text style={styles.serviceName}>{item.serviceName}</Text>
         <Text style={styles.servicePrice}>${item.price}</Text>
@@ -107,17 +148,21 @@ export default function AllServices() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>My Services</Text>
-      <FlatList
-        data={services}
-        keyExtractor={(item) => item.id}
-        renderItem={renderServiceItem}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>You have no services.</Text>
-        }
-        contentContainerStyle={
-          services.length === 0 && styles.emptyContainer
-        }
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color="#1C3530" />
+      ) : (
+        <FlatList
+          data={services}
+          keyExtractor={(item) => item.id}
+          renderItem={renderServiceItem}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>You have no services.</Text>
+          }
+          contentContainerStyle={
+            services.length === 0 && styles.emptyContainer
+          }
+        />
+      )}
 
       {/* Edit Service Modal */}
       {selectedService && (
@@ -191,12 +236,15 @@ export default function AllServices() {
       )}
     </View>
   );
-}
+};
+
+export default AllServices;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+    backgroundColor: '#FFFFFF',
   },
   title: {
     fontSize: 28,
@@ -211,14 +259,20 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     flexDirection: 'row',
-    alignItems: 'flex-start',
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
   },
+  serviceImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+  },
   serviceInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   serviceName: {
     fontSize: 20,
@@ -241,11 +295,11 @@ const styles = StyleSheet.create({
     color: '#777',
   },
   actions: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     marginLeft: 8,
   },
   actionButton: {
-    marginLeft: 8,
+    marginBottom: 8,
   },
   emptyContainer: {
     flexGrow: 1,
