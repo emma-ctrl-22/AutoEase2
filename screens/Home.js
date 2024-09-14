@@ -1,72 +1,125 @@
 // Home.js
-import React, { useState } from "react";
-import { StyleSheet, Text, View, TextInput, FlatList, Image, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  FlatList,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
-import carsData from "../assets/carsData.json";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "../firebaseConfig"; // Adjust the import path based on your project structure
 
 export default function Home({ navigation }) {
-  const [selectedType, setSelectedType] = useState("All");
-  const [filteredCars, setFilteredCars] = useState(carsData.cars);
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTab, setSelectedTab] = useState("carRental");
 
-  const handleTypePress = (type) => {
-    setSelectedType(type);
-    if (type === "All") {
-      setFilteredCars(carsData.cars);
+  useEffect(() => {
+    const servicesRef = collection(db, "services");
+    let q;
+    if (selectedTab === "carRental") {
+      q = query(servicesRef, where("businessType", "==", "carRental"));
     } else {
-      setFilteredCars(carsData.cars.filter(car => car.type === type));
+      q = query(servicesRef, where("businessType", "==", "carWash"));
     }
-  };
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const servicesData = [];
+        snapshot.forEach((doc) => {
+          servicesData.push({ id: doc.id, ...doc.data() });
+        });
+        setServices(servicesData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching services: ", error);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [selectedTab]);
 
   return (
     <View style={styles.container}>
+      {/* Search Bar */}
       <View style={styles.InputGroup}>
-        <TextInput placeholder="Search car here" style={styles.input} />
-        <FontAwesome name="search" size={24} color="black" />
+        <TextInput placeholder="Search here" style={styles.input} />
+        <FontAwesome name="search" size={24} color="black" style={styles.searchIcon} />
       </View>
 
-      <FlatList
-        horizontal
-        data={carsData.types}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
+      {/* Tabs */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tabItem, selectedTab === "carRental" && styles.selectedTab]}
+          onPress={() => {
+            setSelectedTab("carRental");
+            setLoading(true);
+          }}
+        >
+          <Text
             style={[
-              styles.typeItem,
-              selectedType === item.type && styles.selectedTypeItem,
+              styles.tabText,
+              selectedTab === "carRental" && styles.selectedTabText,
             ]}
-            onPress={() => handleTypePress(item.type)}
           >
-            <Text
-              style={[
-                styles.typeText,
-                selectedType === item.type && styles.selectedTypeText,
-              ]}
-            >
-              {item.type}
-            </Text>
-          </TouchableOpacity>
-        )}
-        style={styles.typeList}
-        showsHorizontalScrollIndicator={false}
-      />
+            Car Rentals
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabItem, selectedTab === "carWash" && styles.selectedTab]}
+          onPress={() => {
+            setSelectedTab("carWash");
+            setLoading(true);
+          }}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              selectedTab === "carWash" && styles.selectedTabText,
+            ]}
+          >
+            Car Wash
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-      <FlatList
-        data={filteredCars}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => navigation.navigate('VehicleDetail', { car: item })}>
-            <View style={styles.carItem}>
-              <Image source={require(`../assets/car2.png`)} style={styles.carImage} />
-              <View style={styles.carInfo}>
-                <Text style={styles.carName}>{item.name}</Text>
-                <Text style={styles.carTransmission}>{item.transmission}</Text>
-                <Text style={styles.carPrice}>{item.price}</Text>
+      {/* Service List */}
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 20 }} />
+      ) : services.length === 0 ? (
+        <Text style={styles.noServicesText}>No services available.</Text>
+      ) : (
+        <FlatList
+          data={services}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => navigation.navigate("VehicleDetail", { service: item })}
+            >
+              <View style={styles.serviceItem}>
+                <Image source={{ uri: item.imageUrl }} style={styles.serviceImage} />
+                <View style={styles.serviceInfo}>
+                  <Text style={styles.serviceName}>{item.serviceName}</Text>
+                  {selectedTab === "carRental" && (
+                    <Text style={styles.serviceTransmission}>{item.transmission}</Text>
+                  )}
+                  <Text style={styles.servicePrice}>${item.price}</Text>
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
-        )}
-        style={styles.carList}
-      />
+            </TouchableOpacity>
+          )}
+          style={styles.serviceList}
+          contentContainerStyle={{ paddingBottom: 20 }}
+        />
+      )}
     </View>
   );
 }
@@ -74,83 +127,96 @@ export default function Home({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 10,
+    paddingTop: 20,
     backgroundColor: "#f5f5f5",
-    alignItems: "center",
   },
   InputGroup: {
-    width: "90%",
-    height: 50,
-    backgroundColor: "#fff",
-    borderRadius: 5,
-    display: "flex",
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    marginHorizontal: 20,
+    marginBottom: 10,
+    backgroundColor: "#fff",
+    borderRadius: 8,
     paddingHorizontal: 15,
-    marginBottom: 20,
+    elevation: 2, // For Android shadow
+    shadowColor: "#000", // For iOS shadow
+    shadowOffset: { width: 0, height: 2 }, // For iOS shadow
+    shadowOpacity: 0.1, // For iOS shadow
+    shadowRadius: 5, // For iOS shadow
   },
   input: {
-    width: "90%",
-    height: "100%",
+    flex: 1,
+    height: 50,
     fontSize: 16,
   },
-  typeList: {
-    width: "100%",
-    height: 25,
-    marginBottom: 20,
+  searchIcon: {
+    marginLeft: 10,
   },
-  typeItem: {
-    paddingHorizontal: 10,
-    backgroundColor: "#fff",
-    borderRadius: 5,
+  tabContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginVertical: 15,
+  },
+  tabItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 25,
     marginHorizontal: 5,
+    borderRadius: 5,
+    backgroundColor: "#e0e0e0",
   },
-  selectedTypeItem: {
-    backgroundColor: "#000",
-    height: 20,
+  selectedTab: {
+    backgroundColor: "#1C3530",
   },
-  typeText: {
+  tabText: {
     fontSize: 16,
     color: "#000",
   },
-  selectedTypeText: {
+  selectedTabText: {
     color: "#fff",
+    fontWeight: "bold",
   },
-  carList: {
-    width: "100%",
-  },
-  carItem: {
-    width: "90%",
-    backgroundColor: "#fff",
-    borderRadius: 5,
+  serviceItem: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginHorizontal: 20,
+    marginVertical: 10,
+    elevation: 2, // For Android shadow
+    shadowColor: "#000", // For iOS shadow
+    shadowOffset: { width: 0, height: 2 }, // For iOS shadow
+    shadowOpacity: 0.1, // For iOS shadow
+    shadowRadius: 5, // For iOS shadow
+  },
+  serviceImage: {
+    width: 120,
+    height: 120,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  serviceInfo: {
+    flex: 1,
     padding: 10,
-    alignSelf: "center",
+    justifyContent: "center",
   },
-  carImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 5,
-  },
-  carInfo: {
-    marginLeft: 15,
-  },
-  carName: {
+  serviceName: {
     fontSize: 18,
     fontWeight: "bold",
+    marginBottom: 5,
   },
-  carTransmission: {
+  serviceTransmission: {
     fontSize: 16,
     color: "#777",
-    marginTop: 5,
+    marginBottom: 5,
   },
-  carPrice: {
+  servicePrice: {
     fontSize: 16,
     color: "#000",
-    marginTop: 5,
     fontWeight: "bold",
+  },
+  noServicesText: {
+    textAlign: "center",
+    marginTop: 50,
+    fontSize: 18,
+    color: "#777",
   },
 });

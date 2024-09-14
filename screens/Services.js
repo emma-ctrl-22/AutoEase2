@@ -1,70 +1,108 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity,TextInput ,Image} from 'react-native';
+// Services.js
+
+import React, { useState, useEffect } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome } from '@expo/vector-icons';
-import servicesData from '../assets/servicesData.json';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
 export default function Services() {
-  const [selectedService, setSelectedService] = useState('Car Rental');
+  const [businesses, setBusinesses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigation = useNavigation();
-  
-  const handleServicePress = (type) => {
-    setSelectedService(type);
+
+  useEffect(() => {
+    const fetchBusinesses = async () => {
+      try {
+        const businessesRef = collection(db, 'businesses');
+        const querySnapshot = await getDocs(businessesRef);
+        const businessesData = [];
+        querySnapshot.forEach((doc) => {
+          businessesData.push({ id: doc.id, ...doc.data() });
+        });
+        setBusinesses(businessesData);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching businesses: ', error);
+        setLoading(false);
+      }
+    };
+
+    fetchBusinesses();
+  }, []);
+
+  const handleProviderPress = (business) => {
+    navigation.navigate('ServiceDetail', { business });
   };
 
-  const handleProviderPress = (provider) => {
-    navigation.navigate('ServiceDetail', { provider });
-  };
-
-  const filteredProviders = servicesData.providers.filter(provider => provider.type === selectedService);
+  // Updated filter function with defensive check
+  const filteredBusinesses = businesses.filter((business) => {
+    const name = business.businessName || '';
+    return name.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   return (
     <View style={styles.container}>
+      {/* Search Bar */}
       <View style={styles.InputGroup}>
-        <TextInput placeholder="Search car here" style={styles.input} />
+        <TextInput
+          placeholder="Search business here"
+          style={styles.input}
+          value={searchQuery}
+          onChangeText={(text) => setSearchQuery(text)}
+        />
         <FontAwesome name="search" size={24} color="black" />
       </View>
-      <FlatList
-        horizontal
-        data={servicesData.services}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.serviceItem,
-              selectedService === item.type && styles.selectedServiceItem,
-            ]}
-            onPress={() => handleServicePress(item.type)}
-          >
-            <Text
-              style={[
-                styles.serviceText,
-                selectedService === item.type && styles.selectedServiceText,
-              ]}
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 20 }} />
+      ) : filteredBusinesses.length === 0 ? (
+        <Text style={styles.noBusinessesText}>No businesses found.</Text>
+      ) : (
+        <FlatList
+          data={filteredBusinesses}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => handleProviderPress(item)}
+              style={styles.businessItem}
             >
-              {item.type}
-            </Text>
-          </TouchableOpacity>
-        )}
-        style={styles.serviceList}
-        showsHorizontalScrollIndicator={false}
-      />
-      
-      <FlatList
-        data={filteredProviders}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => handleProviderPress(item)} style={styles.carItem}>
-            <Image source={require(`../assets/car2.png`)} style={styles.carImage} />
-            <View style={styles.providerItem}>
-              <Text style={styles.providerName}>{item.name}</Text>
-              <Text style={styles.providerType}>{item.type}</Text>
-              <Text style={styles.providerType}>{item.location}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        style={styles.providerList}
-      />
+              <Image
+                source={
+                  item.imageUrl
+                    ? { uri: item.imageUrl }
+                    : require('../assets/car2.png')
+                }
+                style={styles.businessImage}
+              />
+              <View style={styles.businessInfo}>
+                <Text style={styles.businessName}>
+                  {item.businessName || 'Unnamed Business'}
+                </Text>
+                <Text style={styles.businessType}>
+                  {item.businessType || 'No Type Provided'}
+                </Text>
+                <Text style={styles.businessLocation}>
+                  {item.location || 'No Location Provided'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          style={styles.businessList}
+          contentContainerStyle={{ paddingBottom: 20 }}
+        />
+      )}
     </View>
   );
 }
@@ -74,82 +112,70 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 10,
     backgroundColor: '#f5f5f5',
-    alignItems: 'center',
   },
   InputGroup: {
-    width: "90%",
-    height: 50,
-    backgroundColor: "#fff",
-    borderRadius: 5,
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    marginBottom: 20,
-  },
-  input: {
-    width: "90%",
-    height: "100%",
-    fontSize: 16,
-  },
-  serviceList: {
-    width: "100%",
-    height: 25,
-    marginBottom: 20,
-  },
-  serviceItem: {
-    paddingHorizontal: 10,
-    backgroundColor: "#fff",
-    borderRadius: 5,
-    marginHorizontal: 5,
-  },
-  selectedServiceItem: {
-    backgroundColor: '#000',
-    height: 20,
-  },
-  serviceText: {
-    fontSize: 16,
-    color: '#000',
-  },
-  selectedServiceText: {
-    color: '#fff',
-  },
-  providerList: {
-    width: '100%',
-  },
-  providerItem: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 5,
-    flexDirection: 'column',
-    marginBottom: 15,
-    padding: 10,
-    marginLeft: 10,
-   
-  },
-  providerName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  providerType: {
-    fontSize: 16,
-    color: '#777',
-    marginTop: 5,
-  },
-  carImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 5,
-  },
-  carItem: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 5,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginHorizontal: 20,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    elevation: 2,
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    marginBottom: 10,
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    fontSize: 16,
+  },
+  businessList: {
+    width: '100%',
+  },
+  businessItem: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginHorizontal: 20,
+    marginVertical: 10,
+    elevation: 2,
+    shadowColor: '#000', // For iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
     padding: 10,
-    alignSelf: 'center',
+  },
+  businessImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+  },
+  businessInfo: {
+    flex: 1,
+    paddingLeft: 15,
+    justifyContent: 'center',
+  },
+  businessName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  businessType: {
+    fontSize: 16,
+    color: '#777',
+    marginBottom: 5,
+  },
+  businessLocation: {
+    fontSize: 16,
+    color: '#777',
+  },
+  noBusinessesText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 18,
+    color: '#777',
   },
 });

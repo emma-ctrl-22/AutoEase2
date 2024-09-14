@@ -114,7 +114,6 @@ const AddService = ({ navigation }) => {
       setCarDescription('');
       setImageUri(null);
       setBusinessType('carWash');
-      navigation('AllServices')
 
     } catch (error) {
       console.error('Error adding service:', error);
