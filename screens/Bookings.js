@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, Button } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { auth, db } from '../firebaseConfig'; // Adjust the path as necessary
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function Bookings() {
   const [userId, setUserId] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Listen for authentication state changes
+  // Listen for authentication state changes
+  React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
       } else {
-        // Handle user not logged in
         setUserId(null);
       }
     });
@@ -23,9 +23,12 @@ export default function Bookings() {
     return () => unsubscribe(); // Clean up the listener on unmount
   }, []);
 
-  useEffect(() => {
-    if (userId) {
+  useFocusEffect(
+    useCallback(() => {
       const fetchBookings = async () => {
+        if (!userId) return;
+        setLoading(true); // Start loading
+
         try {
           // Fetch requests where userId matches the logged-in user
           const requestsRef = collection(db, 'requests');
@@ -60,20 +63,19 @@ export default function Bookings() {
           }
 
           setBookings(bookingsData);
-          setLoading(false);
         } catch (error) {
           console.error('Error fetching bookings: ', error);
-          setLoading(false);
+        } finally {
+          setLoading(false); // Stop loading
         }
       };
 
       fetchBookings();
-    }
-  }, [userId]);
+    }, [userId]) // Dependency array includes userId
+  );
 
   const handleMakePayment = (booking) => {
     // Handle payment logic here
-    // For example, navigate to a payment screen or use a payment API
     console.log('Make payment for booking:', booking);
   };
 
@@ -114,6 +116,7 @@ export default function Bookings() {
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

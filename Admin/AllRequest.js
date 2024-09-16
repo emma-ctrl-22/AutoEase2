@@ -10,12 +10,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // For icons
 import { db, auth } from '../firebaseConfig'; // Adjust the import based on your Firebase config
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, updateDoc } from 'firebase/firestore'; // Import `updateDoc`
 
 export default function AllRequest({ navigation }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     const fetchRequests = async () => {
       try {
@@ -35,8 +35,8 @@ export default function AllRequest({ navigation }) {
         );
         const servicesSnapshot = await getDocs(servicesQuery);
         const servicesMap = {};
-        servicesSnapshot.docs.forEach(doc => {
-          servicesMap[doc.id] = doc.data(); // Store service details by ID
+        servicesSnapshot.docs.forEach(serviceDoc => {
+          servicesMap[serviceDoc.id] = serviceDoc.data(); // Store service details by ID
         });
 
         // Step 2: Fetch requests based on the service IDs
@@ -46,17 +46,14 @@ export default function AllRequest({ navigation }) {
         );
         const requestsSnapshot = await getDocs(requestsQuery);
 
-        const fetchedRequests = await Promise.all(requestsSnapshot.docs.map(async (doc) => {
-          const requestData = { id: doc.id, ...doc.data() };
-          console.log(requestData);
+        const fetchedRequests = await Promise.all(requestsSnapshot.docs.map(async (requestDoc) => {
+          const requestData = { id: requestDoc.id, ...requestDoc.data() };
+          console.log(requestData, 'requestData');
 
-          // Fetch user details based on userId in the request
-          const userQuery = query(
-            collection(db, 'users'),
-            where('userId', '==', requestData.userId) // Assuming userId is stored in requests
-          );
-          const userSnapshot = await getDocs(userQuery);
-          const userData = userSnapshot.docs.length > 0 ? userSnapshot.docs[0].data() : null;
+          // Fetch user details based on the document ID (userId) in the request
+          const userDocRef = doc(db, 'users', requestData.userId); // Access user document by ID
+          const userDocSnapshot = await getDoc(userDocRef);
+          const userData = userDocSnapshot.exists() ? userDocSnapshot.data() : null;
 
           return {
             ...requestData,
@@ -77,16 +74,32 @@ export default function AllRequest({ navigation }) {
     fetchRequests();
   }, [navigation]);
 
+  // Function to update request status and add paid: false field
+  const updateRequestStatus = async (id, status) => {
+    try {
+      const requestRef = doc(db, 'requests', id);
+      await updateDoc(requestRef, {
+        status: status,
+        paid: false, // Set paid to false
+      });
+      setRequests((prevRequests) =>
+        prevRequests.map((req) =>
+          req.id === id ? { ...req, status, paid: false } : req
+        )
+      );
+      Alert.alert(`Request ${status === 'accepted' ? 'Accepted' : 'Rejected'}`, `You have ${status} request ${id}`);
+    } catch (error) {
+      console.error(`Error updating request: ${error}`);
+      Alert.alert('Error', `Failed to update request ${id}. Please try again.`);
+    }
+  };
+
   const handleAccept = (id) => {
-    Alert.alert('Request Accepted', `You have accepted request ${id}`);
-    // Here you can update the request status in Firestore
-    setRequests((prevRequests) => prevRequests.filter((req) => req.id !== id));
+    updateRequestStatus(id, 'accepted');
   };
 
   const handleReject = (id) => {
-    Alert.alert('Request Rejected', `You have rejected request ${id}`);
-    // Here you can update the request status in Firestore
-    setRequests((prevRequests) => prevRequests.filter((req) => req.id !== id));
+    updateRequestStatus(id, 'rejected');
   };
 
   const renderItem = ({ item }) => (
@@ -98,18 +111,32 @@ export default function AllRequest({ navigation }) {
         <Text style={styles.servicePrice}>Price: {item.service.price}</Text>
       </View>
       <View style={styles.buttons}>
-        <TouchableOpacity
-          onPress={() => handleAccept(item.id)}
-          style={styles.button}
-        >
-          <Ionicons name="checkmark-circle" size={28} color="green" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleReject(item.id)}
-          style={styles.button}
-        >
-          <Ionicons name="close-circle" size={28} color="red" />
-        </TouchableOpacity>
+        {item.status === 'accepted' ? (
+          item.paid ? (
+            <View style={styles.paidBadge}>
+              <Text style={styles.paidText}>Paid</Text>
+            </View>
+          ) : (
+            <View style={styles.awaitingPayment}>
+              <Text style={styles.awaitingPaymentText}>Awaiting Payment</Text>
+            </View>
+          )
+        ) : (
+          <>
+            <TouchableOpacity
+              onPress={() => handleAccept(item.id)}
+              style={styles.button}
+            >
+              <Ionicons name="checkmark-circle" size={28} color="green" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleReject(item.id)}
+              style={styles.button}
+            >
+              <Ionicons name="close-circle" size={28} color="red" />
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
@@ -198,5 +225,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  paidBadge: {
+    backgroundColor: 'green',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  paidText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  awaitingPayment: {
+    backgroundColor: 'orange',
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  awaitingPaymentText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
