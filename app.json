@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "AutoEase2",
-    "slug": "AutoEase2",
+    "name": "AutoEase",
+    "slug": "AutoEase",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/car2.png",
@@ -15,10 +15,15 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.autoease.package", 
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/car1.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,6 +35,11 @@
           "photosPermission": "Allow $(APP_NAME) to access your photos."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "04d405a5-d655-435a-b7ec-46e9155763b8"
+      }
+    }
   }
 }
