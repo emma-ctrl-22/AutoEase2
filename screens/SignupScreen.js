@@ -36,7 +36,7 @@ const SignupScreen = ({ navigation }) => {
   const sendSuccessLoginSms = async (phone) => {
     const endPoint = 'https://apps.mnotify.net/smsapi';
     const apiKey = 'TUX6IqmI8FGQEjY2isJROxxCP';
-    const successLoginMessage = `Hello ${fullName}! We have successfully received your registration for TTC'24. Kindly, Log in with your registered phone number, and you'll receive an OTP to access your profile. Thank You. Have an awesome TTC24`;
+    const successLoginMessage = `Hello ${fullName}! You have successfully created your AutoEase account. Kindly, Log in to enjoy all our services.`;
     const url = `${endPoint}?key=${apiKey}&to=${phone}&msg=${encodeURIComponent(successLoginMessage)}&sender_id=AutoEase`;
 
     try {
@@ -126,7 +126,7 @@ const SignupScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.inputGroup}>
-              <Ionicons name="phone" size={24} color="black" style={styles.sideIcon} />
+              <Ionicons name="call" size={24} color="black" style={styles.sideIcon} />
               <TextInput
                 value={phone}
                 onChangeText={setPhone}
