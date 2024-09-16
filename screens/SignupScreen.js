@@ -7,6 +7,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig'; // Firebase imports
 import Ionicons from '@expo/vector-icons/Ionicons';
 import RNPickerSelect from 'react-native-picker-select';
+import axios from 'axios'; // Import axios for sending SMS
 
 // Custom Tabs Component
 const Tab = ({ selectedTab, onPress, title }) => (
@@ -25,14 +26,29 @@ const SignupScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState(''); // New state for phone number
   
   // Business-specific state
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState('');
-  const [location, setLocation] = useState(''); // Will handle location logic here
+  const [location, setLocation] = useState('');
+
+  const sendSuccessLoginSms = async (phone) => {
+    const endPoint = 'https://apps.mnotify.net/smsapi';
+    const apiKey = 'TUX6IqmI8FGQEjY2isJROxxCP';
+    const successLoginMessage = `Hello ${fullName}! We have successfully received your registration for TTC'24. Kindly, Log in with your registered phone number, and you'll receive an OTP to access your profile. Thank You. Have an awesome TTC24`;
+    const url = `${endPoint}?key=${apiKey}&to=${phone}&msg=${encodeURIComponent(successLoginMessage)}&sender_id=AutoEase`;
+
+    try {
+      const response = await axios.post(url);
+      console.log('Success Login SMS Response:', JSON.stringify(response.data));
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+    }
+  };
 
   const handleSignup = async () => {
-    if (!email || !password || (selectedTab === 'User' && !fullName)) {
+    if (!email || !password || (selectedTab === 'User' && !fullName) || !phone) {
       Alert.alert('Error', 'Please fill all fields.');
       return;
     }
@@ -46,6 +62,7 @@ const SignupScreen = ({ navigation }) => {
         await setDoc(doc(db, 'users', user.uid), {
           email: user.email,
           fullName: fullName,
+          phone: phone, // Save phone number
           role: 'customer',
         });
       } else if (selectedTab === 'Business Owner') {
@@ -57,6 +74,7 @@ const SignupScreen = ({ navigation }) => {
         await setDoc(doc(db, 'users', user.uid), {
           email: user.email,
           fullName: businessName,
+          phone: phone, // Save phone number
           role: 'businessOwner',
         });
         // Save business details in Firestore
@@ -68,6 +86,9 @@ const SignupScreen = ({ navigation }) => {
           role: 'businessOwner',
         });
       }
+
+      // Send SMS after successful signup
+      await sendSuccessLoginSms(phone);
 
       Alert.alert('Sign Up Successful', `Welcome, ${selectedTab}! Log in to start using AutoEase`);
       navigation.navigate('Login');
@@ -105,6 +126,16 @@ const SignupScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.inputGroup}>
+              <Ionicons name="phone" size={24} color="black" style={styles.sideIcon} />
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                style={styles.input}
+                placeholder="Phone Number"
+                keyboardType="phone-pad"
+              />
+            </View>
+            <View style={styles.inputGroup}>
               <Ionicons name="mail" size={24} color="black" style={styles.sideIcon} />
               <TextInput
                 value={email}
@@ -137,6 +168,16 @@ const SignupScreen = ({ navigation }) => {
               />
             </View>
             <View style={styles.inputGroup}>
+              <Ionicons name="phone" size={24} color="black" style={styles.sideIcon} />
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                style={styles.input}
+                placeholder="Phone Number"
+                keyboardType="phone-pad"
+              />
+            </View>
+            <View style={styles.inputGroup}>
               <Ionicons name="mail" size={24} color="black" style={styles.sideIcon} />
               <TextInput
                 value={email}
@@ -162,7 +203,8 @@ const SignupScreen = ({ navigation }) => {
                 placeholder={{ label: 'Select Business Type', value: '' }}
                 items={[
                   { label: 'Car Wash', value: 'Car Wash' },
-                  { label: 'Rentals', value: 'Rentals' }
+                  { label: 'Rentals', value: 'Rentals' },
+                  { label: 'Towing', value: 'Towing' }
                 ]}
                 style={pickerSelectStyles}
                 onValueChange={(value) => setBusinessType(value)}
@@ -176,7 +218,6 @@ const SignupScreen = ({ navigation }) => {
                 onChangeText={setLocation}
                 style={styles.input}
                 placeholder="Business Location"
-                // In real implementation, trigger map location picker here
               />
             </View>
           </>
